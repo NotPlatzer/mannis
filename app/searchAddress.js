@@ -101,6 +101,12 @@ export default function SearchAddresses() {
         setInputText(''); // Clear the TextInput for next address
     };
 
+    const handleClearSelection = () => {
+        setSelectedStreet(null);
+        setSelectedAddresses([]);
+        setInputText('');
+    };
+
     const handleFinish = () => {
         // Navigate to the home route with the selected addresses
         router.navigate({ pathname: '/', params: { addresses: JSON.stringify(selectedAddresses) } });
@@ -108,11 +114,28 @@ export default function SearchAddresses() {
 
     return (
         <View style={styles.container}>
-            {selectedStreet && (
-                <Text style={styles.selectedStreetLabel}>
-                    Selected Street: {selectedStreet.name}
-                </Text>
+            {/* Selected Street and Clear Button */}
+            <View style={styles.selectedStreetContainer}>
+                {selectedStreet && (
+                    <Text style={styles.selectedStreetLabel}>
+                        Selected Street: {selectedStreet.name}
+                    </Text>
+                )}
+                <Button title="Clear" onPress={handleClearSelection} />
+            </View>
+
+            {/* Selected Addresses at the Top */}
+            {selectedAddresses.length > 0 && (
+                <View style={styles.selectedAddressesContainer}>
+                    <Text style={styles.selectedAddressesTitle}>Selected Addresses:</Text>
+                    {selectedAddresses.map((address, index) => (
+                        <Text key={index} style={styles.selectedAddressText}>
+                            {address.street} {address.housenumber}, {address.city}, {address.postcode}
+                        </Text>
+                    ))}
+                </View>
             )}
+
             <TextInput
                 style={styles.input}
                 placeholder={selectedStreet ? "Enter house number..." : "Search for an address..."}
@@ -125,6 +148,7 @@ export default function SearchAddresses() {
                         key={index}
                         style={styles.addressItem}
                         onPress={() => handleStreetSelection(street)}
+                        hitSlop={{ top: 20, bottom: 20, left: 50, right: 50 }}
                     >
                         <Text style={styles.streetName}>{street.name}</Text>
                         <Text style={styles.streetDetails}>
@@ -149,17 +173,12 @@ export default function SearchAddresses() {
                     </TouchableOpacity>
                 ))}
             </ScrollView>
-            {selectedAddresses.length > 0 && (
-                <View style={styles.finishContainer}>
-                    <Text style={styles.selectedAddressesTitle}>Selected Addresses:</Text>
-                    {selectedAddresses.map((address, index) => (
-                        <Text key={index} style={styles.selectedAddressText}>
-                            {address.street} {address.housenumber}, {address.city}, {address.postcode}
-                        </Text>
-                    ))}
+            {selectedAddresses.length > 0 &&
+                <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0, alignItems: 'center', paddingBottom: Constants.statusBarHeight * 1.3 }}>
                     <Button title="Finish and Send" onPress={handleFinish} />
                 </View>
-            )}
+            }
+
             <StatusBar style="auto" />
         </View>
     );
@@ -171,6 +190,12 @@ const styles = StyleSheet.create({
         paddingHorizontal: 20,
         paddingTop: Constants.statusBarHeight * 1.3,
         backgroundColor: '#f9f9f9',
+    },
+    selectedStreetContainer: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 10,
     },
     input: {
         height: 50,
@@ -213,17 +238,14 @@ const styles = StyleSheet.create({
     selectedStreetLabel: {
         fontSize: 16,
         fontWeight: 'bold',
-        marginBottom: 10,
         color: '#555',
     },
-    finishContainer: {
-        paddingVertical: 20,
-        alignItems: 'center',
+    selectedAddressesContainer: {
+        marginBottom: 10,
     },
     selectedAddressesTitle: {
         fontSize: 16,
         fontWeight: 'bold',
-        marginBottom: 10,
     },
     selectedAddressText: {
         fontSize: 14,

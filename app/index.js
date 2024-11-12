@@ -9,10 +9,12 @@ import Constants from "expo-constants";
 import SearchSvg from '../assets/search-alt-1-svgrepo-com.svg'
 import { useRouter, useLocalSearchParams } from "expo-router";
 
+const mannisLocation = [11.158797, 46.665481]
+
 export default function Index() {
   const router = useRouter();
   const { addresses } = useLocalSearchParams();
-  const [data, setData] = useState([]);
+  const [locations, setLocations] = useState([]);
   const [region, setRegion] = useState({
     latitude: 0,
     longitude: 0,
@@ -98,9 +100,10 @@ export default function Index() {
     loadDatabase();
     if (addresses) {
       try {
-        const parsedAddress = JSON.parse(addresses);
-        setData(parsedAddress);
-        getDirections(parsedAddress)
+        const parsedAddress = JSON.parse(addresses)
+        setLocations(parsedAddress);
+        //getDirections(parsedAddress)
+        getOptimisation(parsedAddress)
       } catch (error) {
         console.error("Failed to parse address:", error);
       }
@@ -108,9 +111,8 @@ export default function Index() {
   }, [addresses]);
 
 
-  const getDirections = (parsedAddress) => {
+  const getDirections = (c) => {
     const apiUrl = 'https://api.openrouteservice.org/v2/directions/driving-car';
-    const c = parsedAddress.map(({ lat, lon }) => [lon, lat]);
     const data = {
       coordinates: c
     };
@@ -132,7 +134,6 @@ export default function Index() {
         return response.json(); // Parse JSON data to handle it
       })
       .then(data => {
-        console.log({coordinates: decodePolyline(data.routes[0].geometry), summary: data.routes[0].summary})
         setRoute({coordinates: decodePolyline(data.routes[0].geometry), summary: data.routes[0].summary})
       })
       .catch(error => {
@@ -140,13 +141,61 @@ export default function Index() {
       });
 };
 
+  const getOptimisation = (parsedAddress) => {
+    const apiUrl = 'https://api.openrouteservice.org/optimization';
+    let deliverys = parsedAddress.map(({ lat, lon }) => [lon, lat])
+    const userCoordinates = [userLocation.coordinate.longitude, userLocation.coordinate.latitude];
 
+    const jobs = deliverys.map((location, index) => ({
+      id: index + 1,                 // Unique job ID
+      location: location,             // Coordinates of the delivery
+      service: 90,                   // Service duration in seconds
+      delivery: [1],                  // Delivery quantity (could be capacity metric if needed)
+      skills: [1],                    // Example skill, adjust as needed
+    }));
+
+    // Defining the vehicle with start and end locations
+    const vehicle = {
+      id: 1,
+      profile: "driving-car",                 // Profile for routing, "car" by default
+      start: userCoordinates,            // Vehicle starting point
+      end: mannisLocation,              // Vehicle ending point
+      capacity: [4],                  // Capacity array, adjust as needed
+      skills: [1],                    // Vehicle skills, adjust as necessary
+    };
+    const requestOptions = {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': '5b3ce3597851110001cf624865218d6b2b804a69bde78e798286446f' // Corrected spelling here
+      },
+      body: JSON.stringify({
+        jobs: jobs,
+        vehicles: [vehicle]
+      }),
+    };
+
+    fetch(apiUrl, requestOptions)
+      .then(response => {
+        if (!response.ok) {
+          throw new Error('Network response was not ok');
+        }
+        return response.json(); // Parse JSON data to handle it
+      })
+      .then(data => {
+        setLocations(data.routes[0].steps.map(step => step.location))
+        getDirections(data.routes[0].steps.map(step => step.location))
+      })
+      .catch(error => {
+        console.error('Error:', error); // Log any errors
+      });
+  };
   return (
     <View style={styles.container}>
       <TouchableOpacity style={styles.searchContainer} onPress={() => { router.navigate({ pathname: '/searchAddress' }) }}>
         <SearchSvg width={40} height={40} />
       </TouchableOpacity>
-      {data && data.length > 0 && <TouchableOpacity style={styles.clearContainer} onPress={() => { setData([]) }}>
+      {locations && locations.length > 0 && <TouchableOpacity style={styles.clearContainer} onPress={() => { setLocations([]); setRoute({}) }}>
         <Text style={{ fontSize: 18 }}>Clear</Text>
       </TouchableOpacity>}
       <MapView
@@ -158,7 +207,7 @@ export default function Index() {
         showsPointsOfInterest={false}
         onUserLocationChange={e => { userLocationChange(e.nativeEvent) }}
       >
-        {data && data.map((item, index) => (
+        {locations && locations.map((item, index) => (
           <Marker
             key={index}
             coordinate={{
